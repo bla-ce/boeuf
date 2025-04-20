@@ -21,38 +21,63 @@ section .data
   BOEUF_METADATA_OFF_LENGTH equ BOEUF_METADATA_OFF_SIZE + 0x8
   BOEUF_METADATA_OFF_DATA   equ BOEUF_METADATA_OFF_LENGTH + 0x8
 
-  MAX_BOEUF_BUFFER_SIZE equ 0x800
+  MAX_BOEUF_BUF_SIZE equ 0x800
 
 section .text
 
 ; creates a growing buffer 
-; @param    rdi: size of the buffer to be created
+; @param    rdi: pointer to the string
 ; @return   rax: pointer to the buffer
 boeuf_create:
-  sub   rsp, 0x8
+  sub   rsp, 0x18
 
   cmp   rdi, 0
   jl    .error
 
   ; *** STACK USAGE *** ;
-  ; [rsp]     -> size of the boeuf buffer to be created
+  ; [rsp]       -> pointer to the string
+  ; [rsp+0x8]   -> length of the string
+  ; [rsp+0x10]  -> pointer to the boeuf buffer 
 
-  mov   qword [rsp], rdi
+  mov   [rsp], rdi
+
+  ; get size of the string
+  call  strlen
+  cmp   rax, 0
+  jl    .error
+
+  mov   qword [rsp+0x8], rax
 
   ; add metadata struct length to store the size of the buffer
+  mov   rdi, rax
   add   rdi, BOEUF_METADATA_LEN
+  inc   rdi   ; add one for null_char
   call  malloc
   cmp   rax, 0
   jl    .error
 
   ; init metadata
-  mov   rbx, qword [rsp]
+  mov   rbx, qword [rsp+0x8]
   mov   qword [rax+BOEUF_METADATA_OFF_SIZE], rbx
 
-  mov   qword [rax+BOEUF_METADATA_OFF_LENGTH], 0
+  mov   qword [rax+BOEUF_METADATA_OFF_LENGTH], rbx
 
   ; return pointer to the data
   add   rax, BOEUF_METADATA_OFF_DATA
+
+  mov   [rsp+0x10], rax
+
+  ; copy string to the boeuf buffer
+  mov   rdi, rax
+  mov   rsi, [rsp]
+  mov   rcx, qword [rsp+0x8]
+  rep   movsb
+
+  ; add null char
+  mov   rax, NULL_CHAR
+  stosb
+
+  mov   rax, [rsp+0x10]
 
   jmp   .return
 
@@ -60,7 +85,7 @@ boeuf_create:
   mov   rax, FAILURE_CODE
 
 .return:
-  add   rsp, 0x8
+  add   rsp, 0x18
   ret
 
 ; appends string to a buffer
@@ -95,6 +120,7 @@ boeuf_append:
 
   mov   qword [rsp+0x18], rax
   
+  ; get pointer to the boeuf struct
   mov   rdi, [rsp]
   sub   rdi, BOEUF_METADATA_LEN
   mov   [rsp+0x10], rdi
@@ -111,31 +137,22 @@ boeuf_append:
   cmp   rax, rbx
   jl    .no_grow
 
-  mov   rcx, rax
-  mov   rax, qword [rdi+BOEUF_METADATA_OFF_SIZE]
-
-  ; sometimes multiplying by 2 is not enough
-.loop:
-  xor   rdx, rdx
-  mov   rbx, 2
-  mul   rbx
-
-  cmp   rax, rcx
-  jl    .loop
-.end_loop:
-
-  ; save size onto the stack
+  ; save new size onto the stack
   mov   qword [rsp+0x20], rax
 
   ; malloc new boeuf buffer
+  mov   rax, qword [rdi+BOEUF_METADATA_OFF_SIZE]
+  add   rax, qword [rsp+0x18]
   add   rax, BOEUF_METADATA_LEN
   
-  ; make sure the requested size is not over MAX_BOEUF_BUFFER_SIZE
-  cmp   rax, MAX_BOEUF_BUFFER_SIZE
+  ; make sure the requested size is not over MAX_BOEUF_BUF_SIZE
+  cmp   rax, MAX_BOEUF_BUF_SIZE
   jg    .error
 
+  ; realloc chunk of memory
   mov   rdi, [rsp+0x10]
   mov   rsi, rax
+  inc   rsi       ; add one for null char
   call  realloc
   cmp   rax, 0
   jl    .error

@@ -8,7 +8,7 @@ section .data
   buf3  db "I am a buffer growing. ", NULL_CHAR
   buf4  db "And I can grow indefinitely. ", NULL_CHAR
   buf5  db "As long as the program as enough memory. ", NULL_CHAR
-  buf6  db "How cool is that? I find that cool", NULL_CHAR
+  buf6  db "How cool is that? I find that cool.", NULL_CHAR
 
 section .bss
 
@@ -16,20 +16,12 @@ section .text
 _start:
   sub   rsp, 0x8
 
-  mov   rdi, 8
+  mov   rdi, buf
   call  boeuf_create
   cmp   rax, 0
   jl    .error
 
   mov   [rsp], rax 
-
-  mov   rdi, rax
-  mov   rsi, buf
-  call  boeuf_append
-  cmp   rax, 0
-  jl    .error
-
-  mov   [rsp], rax
 
   mov   rdi, [rsp]
   call  println
