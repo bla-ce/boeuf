@@ -210,6 +210,10 @@ boeuf_append:
 
   mov   rsi, [rsp+0x8]
   rep   movsb
+
+  ; add null char
+  mov   rax, NULL_CHAR
+  stosb
   
   mov   rax, [rsp]
   jmp   .return
@@ -230,4 +234,29 @@ boeuf_free:
 
   ret
 
+; resets the boeuf buffer
+; @param    rdi: pointer to the boeuf buffer
+; @param    rax: return code
+boeuf_reset:
+  cmp   rdi, 0
+  jl    .error
+
+  ; add null char at the beginning of the string
+  mov   rax, NULL_CHAR
+  stosb
+
+  dec   rdi
+  sub   rdi, BOEUF_METADATA_LEN 
+
+  ; set length to 0
+  mov   qword [rdi+BOEUF_METADATA_OFF_LENGTH], 0
+
+  mov   rax, SUCCESS_CODE
+  jmp   .return
+
+.error:
+  mov   rax, FAILURE_CODE
+
+.return:
+  ret
 

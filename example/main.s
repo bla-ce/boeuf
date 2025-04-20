@@ -81,6 +81,21 @@ _start:
   mov   rdi, rax
   call  println
 
+  ; reset boeuf buffer
+  mov   rdi, [rsp]
+  call  boeuf_reset
+  cmp   rax, 0
+  jl    .error
+
+  mov   rdi, [rsp]
+  mov   rsi, buf
+  call  boeuf_append
+  cmp   rax, 0
+  jl    .error
+
+  mov   rdi, [rsp]
+  call  println
+
   ; free boeuf buffer
   mov   rdi, [rsp]
   call  boeuf_free
