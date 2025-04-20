@@ -1,0 +1,7 @@
+main
+git.sh
+
+*.o
+*.c
+*.txt
+
