@@ -3,7 +3,9 @@ global _start
 %include "boeuf.inc"
 
 section .data
-  buf   db "Hello", NULL_CHAR
+  buf     db "Hello", NULL_CHAR
+  buf_len equ $ - buf - 1   ; remove NULL_CHAR
+
   buf2  db ", World! ", NULL_CHAR
   buf3  db "I am a buffer growing. ", NULL_CHAR
   buf4  db "And I can grow indefinitely. ", NULL_CHAR
@@ -90,6 +92,30 @@ _start:
   mov   rdi, [rsp]
   mov   rsi, buf
   call  boeuf_append
+  cmp   rax, 0
+  jl    .error
+
+  mov   rdi, [rsp]
+  call  println
+
+  mov   rdi, [rsp]
+  call  boeuf_len
+
+  cmp   rax, buf_len
+  jne   .error
+
+  mov   rdi, [rsp]
+  mov   rsi, buf6
+  call  boeuf_append
+  cmp   rax, 0
+  jl    .error
+
+  mov   rdi, [rsp]
+  call  println
+
+  mov   rdi, [rsp]
+  mov   rsi, 5
+  call  set_boeuf_len
   cmp   rax, 0
   jl    .error
 

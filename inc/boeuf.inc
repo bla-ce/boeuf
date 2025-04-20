@@ -26,8 +26,8 @@ section .data
 section .text
 
 ; creates a growing buffer 
-; @param    rdi: pointer to the string
-; @return   rax: pointer to the buffer
+; @param  rdi: pointer to the string
+; @return rax: pointer to the buffer
 boeuf_create:
   sub   rsp, 0x18
 
@@ -89,9 +89,9 @@ boeuf_create:
   ret
 
 ; appends string to a buffer
-; @param    rdi: pointer to the boeuf buffer
-; @param    rsi: pointer to the string to be appended
-; @param    rax: return code
+; @param  rdi: pointer to the boeuf buffer
+; @param  rsi: pointer to the string to be appended
+; @return rax: return code
 boeuf_append:
   sub   rsp, 0x30
 
@@ -226,8 +226,8 @@ boeuf_append:
   ret
 
 ; frees the boeuf buffer
-; @param    rdi: pointer to the boeuf buffer to freed
-; @param    rax: return code
+; @param  rdi: pointer to the boeuf buffer to freed
+; @return rax: return code
 boeuf_free:
   sub   rdi, BOEUF_METADATA_LEN
   call  free
@@ -235,8 +235,8 @@ boeuf_free:
   ret
 
 ; resets the boeuf buffer
-; @param    rdi: pointer to the boeuf buffer
-; @param    rax: return code
+; @param  rdi: pointer to the boeuf buffer
+; @return rax: return code
 boeuf_reset:
   cmp   rdi, 0
   jl    .error
@@ -258,5 +258,64 @@ boeuf_reset:
   mov   rax, FAILURE_CODE
 
 .return:
+  ret
+
+; returns the length of the boeuf buffer
+; @param  rdi: pointer to the boeuf buffer
+; @return rax: length of the boeuf buffer
+boeuf_len:
+  cmp   rdi, 0
+  jl    .error
+
+  sub   rdi, BOEUF_METADATA_LEN
+  mov   rax, qword [rdi+BOEUF_METADATA_OFF_LENGTH]
+
+  jmp   .return
+
+.error:
+  mov   rax, FAILURE_CODE
+
+.return:
+  ret
+
+; sets the new (smaller) length of the boeuf buffer
+; @param  rdi: pointer to the boeuf buffer
+; @param  rsi: new size
+; @return rax: return code
+set_boeuf_len:
+  sub   rsp, 0x10
+
+  cmp   rdi, 0
+  jl    .error
+
+  cmp   rsi, 0
+  jl    .error
+
+  ; *** STACK USAGE *** ;
+  ; [rsp]     -> pointer to the boeuf buffer
+  ; [rsp+0x8] -> new size of the boeuf buffer
+
+  mov   [rsp], rdi
+  mov   [rsp+0x8], rsi
+
+  sub   rdi, BOEUF_METADATA_LEN
+  cmp   rsi, qword [rdi+BOEUF_METADATA_OFF_LENGTH]
+  jge   .return
+
+  mov   qword [rdi+BOEUF_METADATA_OFF_LENGTH], rsi
+  add   rdi, BOEUF_METADATA_LEN
+  add   rdi, rsi
+
+  mov   rax, NULL_CHAR
+  stosb
+
+  mov   rax, SUCCESS_CODE
+  jmp   .return
+
+.error:
+  mov   rax, FAILURE_CODE
+
+.return:
+  add   rsp, 0x10
   ret
 
