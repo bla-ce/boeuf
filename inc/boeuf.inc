@@ -8,23 +8,26 @@
 %include "syscall.inc"
 %include "file.inc"
 
+; TODO: add magic value checks
+
 section .data
   boeuf_metadata_struct:
-    boeuf_size    dq 0
-    boeuf_length  dq 0
+    boeuf_magic_value dq 0xC0FFEE
+    boeuf_size        dq 0
+    boeuf_length      dq 0
   boeuf_metadata_struct_end:
 
   BOEUF_METADATA_LEN equ boeuf_metadata_struct_end - boeuf_metadata_struct
 
   ; offsets  
-  BOEUF_METADATA_OFF_SIZE   equ 0
-  BOEUF_METADATA_OFF_LENGTH equ BOEUF_METADATA_OFF_SIZE + 0x8
-  BOEUF_METADATA_OFF_DATA   equ BOEUF_METADATA_OFF_LENGTH + 0x8
+  BOEUF_METADATA_OFF_MAGIC_VALUE  equ 0
+  BOEUF_METADATA_OFF_SIZE         equ BOEUF_METADATA_OFF_MAGIC_VALUE + 0x8
+  BOEUF_METADATA_OFF_LENGTH       equ BOEUF_METADATA_OFF_SIZE + 0x8
+  BOEUF_METADATA_OFF_DATA         equ BOEUF_METADATA_OFF_LENGTH + 0x8
 
   MAX_BOEUF_BUF_SIZE equ 0x800
 
 section .text
-
 ; creates a growing buffer 
 ; @param  rdi: pointer to the string
 ; @return rax: pointer to the buffer
@@ -57,6 +60,9 @@ boeuf_create:
   jl    .error
 
   ; init metadata
+  mov   rbx, qword [boeuf_magic_value]
+  mov   qword [rax+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+
   mov   rbx, qword [rsp+0x8]
   mov   qword [rax+BOEUF_METADATA_OFF_SIZE], rbx
 
@@ -112,8 +118,14 @@ boeuf_append:
   mov   [rsp], rdi
   mov   [rsp+0x8], rsi
 
+  ; make sure of the integrity of the boeuf buffer
+  sub   rdi, BOEUF_METADATA_LEN 
+  mov   rbx, qword [boeuf_magic_value]
+  cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+  jne   .error
+
   ; get length of string to be appended
-  mov   rdi, rsi
+  mov   rdi, [rsp+0x8]
   call  strlen
   cmp   rax, 0
   jl    .error
@@ -160,6 +172,10 @@ boeuf_append:
   mov   [rsp+0x28], rax
 
   ; populate metadata of new boeuf buffer
+  mov   rbx, qword [boeuf_magic_value]
+  mov   qword [rax+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+
+  ; add size of the boeuf buffer
   mov   rbx, qword [rsp+0x20]
   mov   qword [rax+BOEUF_METADATA_OFF_SIZE], rbx
 
@@ -230,8 +246,20 @@ boeuf_append:
 ; @return rax: return code
 boeuf_free:
   sub   rdi, BOEUF_METADATA_LEN
+
+  ; make sure of the integrity of the boeuf buffer
+  mov   rbx, qword [boeuf_magic_value]
+  cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+  jne   .error
+
   call  free
 
+  jmp   .return
+
+.error:
+  mov   rax, FAILURE_CODE
+
+.return:
   ret
 
 ; resets the boeuf buffer
@@ -247,6 +275,11 @@ boeuf_reset:
 
   dec   rdi
   sub   rdi, BOEUF_METADATA_LEN 
+
+  ; make sure of the integrity of the boeuf buffer
+  mov   rbx, qword [boeuf_magic_value]
+  cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+  jne   .error
 
   ; set length to 0
   mov   qword [rdi+BOEUF_METADATA_OFF_LENGTH], 0
@@ -268,6 +301,12 @@ boeuf_len:
   jl    .error
 
   sub   rdi, BOEUF_METADATA_LEN
+
+  ; make sure of the integrity of the boeuf buffer
+  mov   rbx, qword [boeuf_magic_value]
+  cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+  jne   .error
+
   mov   rax, qword [rdi+BOEUF_METADATA_OFF_LENGTH]
 
   jmp   .return
@@ -299,6 +338,12 @@ set_boeuf_len:
   mov   [rsp+0x8], rsi
 
   sub   rdi, BOEUF_METADATA_LEN
+
+  ; make sure of the integrity of the boeuf buffer
+  mov   rbx, qword [boeuf_magic_value]
+  cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
+  jne   .error
+
   cmp   rsi, qword [rdi+BOEUF_METADATA_OFF_LENGTH]
   jge   .return
 
