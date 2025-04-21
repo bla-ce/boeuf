@@ -130,6 +130,8 @@ _start:
   call  exit
 
 .error:
+  call  boeuf_perror
+
   mov   rdi, FAILURE_CODE
   call  exit
 

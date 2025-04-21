@@ -8,8 +8,6 @@
 %include "syscall.inc"
 %include "file.inc"
 
-; TODO: add magic value checks
-
 section .data
   boeuf_metadata_struct:
     boeuf_magic_value dq 0xC0FFEE
@@ -27,6 +25,21 @@ section .data
 
   MAX_BOEUF_BUF_SIZE equ 0x800
 
+  BOEUF_INVALID_ARG   equ 0
+  BOEUF_CORRUPTED_BUF equ 1
+  BOEUF_BUF_TOO_LARGE equ 2
+  BOEUF_MEMORY_ERROR  equ 3
+
+  boeuf_invalid_arg_str         db "invalid argument", NULL_CHAR
+  boeuf_corrupted_buf_str       db "corrupted buffer", NULL_CHAR
+  boeuf_buf_too_large_str       db "buffer is too large", NULL_CHAR
+  boeuf_memory_error_str        db "memory error", NULL_CHAR
+  boeuf_error_code_unknown_str  db "unknown error code", NULL_CHAR
+
+  boeuf_errno dq 0
+
+  boeuf_log_error db "[ERROR] ", NULL_CHAR
+
 section .text
 ; creates a growing buffer 
 ; @param  rdi: pointer to the string
@@ -34,8 +47,9 @@ section .text
 boeuf_create:
   sub   rsp, 0x18
 
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rdi, 0
-  jl    .error
+  jle   .error
 
   ; *** STACK USAGE *** ;
   ; [rsp]       -> pointer to the string
@@ -44,18 +58,23 @@ boeuf_create:
 
   mov   [rsp], rdi
 
-  ; get size of the string
+  ; get length of the string
   call  strlen
+
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rax, 0
   jl    .error
 
+  ; save length of the string
   mov   qword [rsp+0x8], rax
 
-  ; add metadata struct length to store the size of the buffer
+  ; add metadata struct length
   mov   rdi, rax
   add   rdi, BOEUF_METADATA_LEN
   inc   rdi   ; add one for null_char
   call  malloc
+
+  mov   qword [boeuf_errno], BOEUF_MEMORY_ERROR
   cmp   rax, 0
   jl    .error
 
@@ -101,11 +120,12 @@ boeuf_create:
 boeuf_append:
   sub   rsp, 0x30
 
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rdi, 0
-  jl    .error
+  jle   .error
 
   cmp   rsi, 0
-  jl    .error
+  jle   .error
 
   ; *** STACK USAGE *** ;
   ; [rsp]       -> pointer to the boeuf buffer
@@ -121,12 +141,16 @@ boeuf_append:
   ; make sure of the integrity of the boeuf buffer
   sub   rdi, BOEUF_METADATA_LEN 
   mov   rbx, qword [boeuf_magic_value]
+  
+  mov   qword [boeuf_errno], BOEUF_CORRUPTED_BUF
   cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
   jne   .error
 
   ; get length of string to be appended
   mov   rdi, [rsp+0x8]
   call  strlen
+  
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rax, 0
   jl    .error
 
@@ -144,6 +168,7 @@ boeuf_append:
 
   ; add current length of the boeuf buffer and the length of the string to be appended
   add   rax, rcx
+  inc   rax ; add one for the null character at the end
   
   ; compare it with the size of the boeuf buffer
   cmp   rax, rbx
@@ -158,14 +183,16 @@ boeuf_append:
   add   rax, BOEUF_METADATA_LEN
   
   ; make sure the requested size is not over MAX_BOEUF_BUF_SIZE
+  mov   qword [boeuf_errno], BOEUF_BUF_TOO_LARGE
   cmp   rax, MAX_BOEUF_BUF_SIZE
   jg    .error
 
   ; realloc chunk of memory
   mov   rdi, [rsp+0x10]
   mov   rsi, rax
-  inc   rsi       ; add one for null char
   call  realloc
+
+  mov   qword [boeuf_errno], BOEUF_MEMORY_ERROR
   cmp   rax, 0
   jl    .error
 
@@ -206,6 +233,8 @@ boeuf_append:
   ; free old boeuf buffer
   mov   rdi, [rsp+0x10]
   call  free
+
+  mov   qword [boeuf_errno], BOEUF_MEMORY_ERROR
   cmp   rax, 0
   jl    .error
 
@@ -249,6 +278,8 @@ boeuf_free:
 
   ; make sure of the integrity of the boeuf buffer
   mov   rbx, qword [boeuf_magic_value]
+
+  mov   qword [boeuf_errno], BOEUF_CORRUPTED_BUF
   cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
   jne   .error
 
@@ -266,6 +297,7 @@ boeuf_free:
 ; @param  rdi: pointer to the boeuf buffer
 ; @return rax: return code
 boeuf_reset:
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rdi, 0
   jl    .error
 
@@ -278,6 +310,7 @@ boeuf_reset:
 
   ; make sure of the integrity of the boeuf buffer
   mov   rbx, qword [boeuf_magic_value]
+  mov   qword [boeuf_errno], BOEUF_CORRUPTED_BUF
   cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
   jne   .error
 
@@ -297,6 +330,7 @@ boeuf_reset:
 ; @param  rdi: pointer to the boeuf buffer
 ; @return rax: length of the boeuf buffer
 boeuf_len:
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rdi, 0
   jl    .error
 
@@ -304,6 +338,7 @@ boeuf_len:
 
   ; make sure of the integrity of the boeuf buffer
   mov   rbx, qword [boeuf_magic_value]
+  mov   qword [boeuf_errno], BOEUF_CORRUPTED_BUF
   cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
   jne   .error
 
@@ -324,6 +359,7 @@ boeuf_len:
 set_boeuf_len:
   sub   rsp, 0x10
 
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
   cmp   rdi, 0
   jl    .error
 
@@ -341,6 +377,7 @@ set_boeuf_len:
 
   ; make sure of the integrity of the boeuf buffer
   mov   rbx, qword [boeuf_magic_value]
+  mov   qword [boeuf_errno], BOEUF_CORRUPTED_BUF
   cmp   qword [rdi+BOEUF_METADATA_OFF_MAGIC_VALUE], rbx
   jne   .error
 
@@ -362,5 +399,64 @@ set_boeuf_len:
 
 .return:
   add   rsp, 0x10
+  ret
+
+; converts error code into a string
+; @param  rdi: error code
+; @return rax: pointer to the string
+boeuf_error_code_to_string:
+  cmp   rdi, 0
+  jl    .error
+
+  cmp   rdi, BOEUF_INVALID_ARG
+  jne   .check_corrupted_buf
+
+  lea   rax, [boeuf_invalid_arg_str]
+
+  jmp   .return
+
+.check_corrupted_buf:
+  cmp   rdi, BOEUF_CORRUPTED_BUF
+  jne   .check_buf_too_large
+
+  lea   rax, [boeuf_corrupted_buf_str]
+
+  jmp   .return
+
+.check_buf_too_large:
+  cmp   rdi, BOEUF_BUF_TOO_LARGE
+  jne   .check_memory_error
+
+  lea   rax, [boeuf_buf_too_large_str]
+
+  jmp   .return
+
+.check_memory_error:
+  cmp   rdi, BOEUF_MEMORY_ERROR
+  jne   .error
+
+  lea   rax, [boeuf_memory_error_str]
+
+  jmp   .return
+
+.error:
+  lea   rax, [boeuf_error_code_unknown_str]
+
+.return:
+  ret
+
+; prints the error message from the error code
+; @return rax: return code
+boeuf_perror:
+  lea   rdi, [boeuf_log_error]
+  call  print
+
+  mov   rdi, qword [boeuf_errno]
+  call  boeuf_error_code_to_string
+  ; ^ this function returns a string even on error
+
+  mov   rdi, rax
+  call  println
+
   ret
 
