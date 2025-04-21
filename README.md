@@ -49,7 +49,7 @@ jl      .error
 **Print error messages**
 
 ```assembly
-mov     rdi, 10         ; rdi should get a pointer to the boeuf
+mov     rdi, 10         ; rdi should get a pointer to the boeuf, it will fail
 mov     rsi, buf
 call    boeuf_append
 cmp     rax, 0
