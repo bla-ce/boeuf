@@ -58,7 +58,7 @@ jl      .error
 ; ... logic
 
 .error:
-call    perror          ; will print '[ERROR] error_message'
+call    boeuf_perror    ; will print '[ERROR] error_message'
 ``` 
 
 **Free the boeuf**
