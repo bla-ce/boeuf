@@ -7,7 +7,7 @@ section .text
 ; @param    rsi: new size
 ; @return   rax: pointer to the new memory chunk
 realloc:
-  sub   rsp, 0x18
+  sub   rsp, 0x20
 
   cmp   rdi, 0
   jl    .error
@@ -19,22 +19,23 @@ realloc:
 
   ; *** STACK USAGE *** ;
   ; [rsp]       -> pointer to the memory chunk
-  ; [rsp+0x8]   -> size of the memory chunk
-  ; [rsp+0x10]  -> pointer to the new memory chunk
+  ; [rsp+0x8]   -> new size of the memory chunk
+  ; [rsp+0x10]  -> old size of the memory chunk
+  ; [rsp+0x18]  -> pointer to the new memory chunk
 
   mov   [rsp], rdi
+  mov   qword [rsp+0x8], rsi
 
   sub   rdi, CHUNK_SIZE
   mov   rax, qword [rdi+CHUNK_OFFSET_SIZE]
-  mov   qword [rsp+0x8], rax
-  add   rax, rsi
+  mov   qword [rsp+0x10], rax
 
-  mov   rdi, rax
+  mov   rdi, qword [rsp+0x8]
   call  malloc
   cmp   rax, 0
   jl    .error
 
-  mov   [rsp+0x10], rax
+  mov   [rsp+0x18], rax
 
   mov   rdi, rax
   mov   rsi, [rsp]
@@ -46,7 +47,7 @@ realloc:
   cmp   rax, 0
   jl    .error
 
-  mov   rax, [rsp+0x10]
+  mov   rax, [rsp+0x18]
   jmp   .return
 
 .malloc:
@@ -67,6 +68,6 @@ realloc:
   mov   rax, FAILURE_CODE
 
 .return:
-  add   rsp, 0x18
+  add   rsp, 0x20
   ret
 

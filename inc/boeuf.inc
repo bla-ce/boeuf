@@ -230,10 +230,6 @@ boeuf_append:
   mov   rax, NULL_CHAR
   stosb
 
-  ; free old boeuf buffer
-  mov   rdi, [rsp+0x10]
-  call  free
-
   mov   qword [boeuf_errno], BOEUF_MEMORY_ERROR
   cmp   rax, 0
   jl    .error
