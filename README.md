@@ -2,6 +2,8 @@
 
 **boeuf** is a library used to create and manage dynamic buffers in Netwide Assembly. Dynamic buffers are referred as `boeuf` in this library.
 
+A complete usage example can be found in `/example`
+
 ## Usage
 
 **Create a boeuf buffer**
