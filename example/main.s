@@ -115,7 +115,7 @@ _start:
 
   mov   rdi, [rsp]
   mov   rsi, 5
-  call  set_boeuf_len
+  call  boeuf_set_len
   cmp   rax, 0
   jl    .error
 

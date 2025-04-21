@@ -356,7 +356,7 @@ boeuf_len:
 ; @param  rdi: pointer to the boeuf buffer
 ; @param  rsi: new size
 ; @return rax: return code
-set_boeuf_len:
+boeuf_set_len:
   sub   rsp, 0x10
 
   mov   qword [boeuf_errno], BOEUF_INVALID_ARG

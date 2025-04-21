@@ -1,19 +1,72 @@
 # boeuf - Dynamic Buffer in Assembly
 
-**boeuf** is a library written in x86 Assembly. It provides simple methods to:
+**boeuf** is a library used to create and manage dynamic buffers in Netwide Assembly. Dynamic buffers are referred as `boeuf` in this library.
 
-- **Initialize** a resizable buffer  
-- **Append** NULL‑terminated strings  
-- **Reset** the buffer
-- **Set** new (smaller) length of the buffer
-- **Get** length of the buffer
-- **Free** the buffer when done  
+## Usage
 
-boeuf delegates all memory management to the [unstack](https://github.com/bla-ce/unstack) library.
+**Create a boeuf buffer**
 
-## Features
+```assembly
+mov     rdi, buf        ; pointer to the string
+call    boeuf_create
+cmp     rax, 0
+jl      .error
+```
 
-- **Dynamic growth**: Buffers automatically expand as you append data.  
-- **Easy string handling**: Append strings to the buffer.  
-- **Example included**: See the `/example` directory for a complete usage demonstration.
+**Append string to a boeuf buffer**
+
+```assembly
+mov     rdi, [rsp]      ; pointer to the boeuf
+call    boeuf_append
+cmp     rax, 0
+jl      .error
+```
+
+**Reset boeuf buffer**
+
+```assembly
+mov     rdi, [rsp]      ; pointer to the boeuf
+call    boeuf_reset
+cmp     rax, 0
+jl      .error
+```
+
+**Get length of boeuf and set a new (smaller one)**
+
+```assembly
+mov     rdi, [rsp]      ; pointer to the boeuf
+call    boeuf_len
+cmp     rax, 0
+jl      .error
+
+mov     rdi, [rsp]      
+mov     rsi, 5          ; assume that the length is smaller
+call    boeuf_set_len
+cmp     rax, 0
+jl      .error
+```
+
+**Print error messages**
+
+```assembly
+mov     rdi, 10         ; rdi should get a pointer to the boeuf
+mov     rsi, buf
+call    boeuf_append
+cmp     rax, 0
+jl      .error
+
+; ... logic
+
+.error:
+call    perror          ; will print '[ERROR] error_message'
+``` 
+
+**Free the boeuf**
+
+```assembly
+mov     rdi, [rsp]      ; pointer to the boeuf
+call    boeuf_free
+cmp     rax, 0
+jl      .error
+```
 
