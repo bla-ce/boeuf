@@ -23,7 +23,7 @@ section .data
   BOEUF_METADATA_OFF_LENGTH       equ BOEUF_METADATA_OFF_SIZE + 0x8
   BOEUF_METADATA_OFF_DATA         equ BOEUF_METADATA_OFF_LENGTH + 0x8
 
-  MAX_BOEUF_BUF_SIZE equ 0x800
+  MAX_BOEUF_BUF_SIZE equ 200000
 
   BOEUF_INVALID_ARG   equ 0
   BOEUF_CORRUPTED_BUF equ 1
@@ -154,16 +154,6 @@ boeuf_create:
 boeuf_nappend:
   sub   rsp, 0x30
 
-  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
-  cmp   rdi, 0
-  jle   .error
-
-  cmp   rsi, 0
-  jle   .error
-
-  cmp   rdx, 0
-  jle   .error
-
   ; *** STACK USAGE *** ;
   ; [rsp]       -> pointer to the boeuf buffer
   ; [rsp+0x8]   -> pointer to the string
@@ -175,6 +165,16 @@ boeuf_nappend:
   mov   [rsp], rdi
   mov   [rsp+0x8], rsi
   mov   qword [rsp+0x18], rdx
+
+  mov   qword [boeuf_errno], BOEUF_INVALID_ARG
+  cmp   rdi, 0
+  jle   .error
+
+  cmp   rsi, 0
+  jle   .error
+
+  cmp   rdx, 0
+  jle   .error
 
   ; make sure of the integrity of the boeuf buffer
   sub   rdi, BOEUF_METADATA_LEN 
@@ -196,7 +196,6 @@ boeuf_nappend:
 
   ; add current length of the boeuf buffer and the length of the string to be appended
   add   rax, rcx
-  inc   rax ; add one for the null character at the end
   
   ; compare it with the size of the boeuf buffer
   cmp   rax, rbx
